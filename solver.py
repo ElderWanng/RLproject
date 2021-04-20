@@ -87,12 +87,10 @@ class Solver:
 
     def back_propagation(self, x_array, u_array):
 
-        u_array_sup = np.vstack([u_array, np.zeros(len(u_array[0]))])
+        u_array_sup = u_array
         lqr_sys = self.build_lqr_system(x_array, u_array_sup)
 
         #k and K
-        fdfwd = [None] * self.T
-        fdbck_gain = [None] * self.T
         fdfwd = [None] * self.T
         fdbck_gain = [None] * self.T
         Vxx = lqr_sys['dldxx'][-1] #QN

@@ -38,7 +38,6 @@ class LQR_Track_Controller:
         self.obj = obj
         #figure out dimension
         self.T_ = len(ref_pnts)# leave the last point alone
-        self.n_dims_ = len(ref_pnts[0])
 
 
         self.ref_array = np.copy(ref_pnts)
@@ -49,7 +48,7 @@ class LQR_Track_Controller:
 
 
         def tmp_cost_func(x, u, t, aux):
-            err = x[0:self.n_dims_] - self.ref_array[t]
+            err = x[0:self.obj.nu] - self.ref_array[t]
             #autograd does not allow A.dot(B)
             cost = np.dot(np.dot(err, self.weight_array[t]), err) + np.sum(u**2) * self.R_
             return cost
@@ -62,8 +61,8 @@ class LQR_Track_Controller:
             self.plant_dyn_du_ = lambda x, u, t, aux: obj.get_linearization(x, u, t)[0]
             self.plant_dyn_dx_ = lambda x, u, t, aux: obj.get_linearization(x, u, t)[1]
             def tmp_cost_func_dx(x, u, t, aux):
-                err = x[0:self.n_dims_] - self.ref_array[t]
-                grad = np.concatenate([2 * err.dot(self.weight_array[t]), np.zeros(self.n_dims_)])
+                err = x - self.ref_array[t]
+                grad = np.concatenate([2 * err.dot(self.weight_array[t])])
                 return grad
 
             self.cost_dx_ = tmp_cost_func_dx
@@ -71,14 +70,14 @@ class LQR_Track_Controller:
             self.cost_du_ = lambda x, u, t, aux: 2 * self.R_ * u
 
             def tmp_cost_func_dxx(x, u, t, aux):
-                hessian = np.zeros((2 * self.n_dims_, 2 * self.n_dims_))
-                hessian[0:self.n_dims_, 0:self.n_dims_] = 2 * self.weight_array[t]
+                hessian = np.zeros((self.obj.ns,self.obj.ns))
+                hessian = 2 * self.weight_array[t]
                 return hessian
 
             self.cost_dxx_ = tmp_cost_func_dxx
 
-            self.cost_duu_ = lambda x, u, t, aux: 2 * self.R_ * np.eye(self.n_dims_)
-            self.cost_dux_ = lambda x, u, t, aux: np.zeros((self.n_dims_, 2 * self.n_dims_))
+            self.cost_duu_ = lambda x, u, t, aux: 2 * self.R_ * np.eye(self.obj.nu)
+            self.cost_dux_ = lambda x, u, t, aux: np.zeros((self.obj.nu, 2 * self.obj.nu))
 
             # build an iLQR solver based on given functions...
             self.lqr_.plant_dyn = self.plant_dyn
@@ -97,7 +96,7 @@ class LQR_Track_Controller:
             return None
         #initialization doesn't matter as global optimality can be guaranteed?
         if u_array is None:
-            u_init = [np.zeros(self.n_dims_) for i in range(self.T_-1)]
+            u_init = [np.zeros(self.obj.nu) for i in range(self.T_-1)]
         else:
             u_init = u_array
         x_init = np.zeros(self.obj.ns)
@@ -109,7 +108,7 @@ class LQR_Track_Controller:
         Ks = res_dict['K_array_opt']
         ks = res_dict['k_array_opt']
         x_array_new, u_array_new = self.apply_control(x_star, u_init, ks, Ks,alpha=1)
-        return x_array_new[:, 0:self.n_dims_]
+        return x_array_new[:, 0:self.obj.nu]
 
     def controller(self,u,x,k_array,K_array):
         pass
@@ -149,8 +148,10 @@ if __name__ == '__main__':
         n_pnts = 200
         x_coord = np.linspace(0.0, 2 * np.pi, n_pnts)
         y_coord = np.sin(x_coord)
-        ref_traj = np.array([x_coord, y_coord]).T
-        weight_mats = [np.eye(ref_traj.shape[1]) * 100]
+        vx = np.zeros_like(x_coord)
+        vy = np.zeros_like(x_coord)
+        ref_traj = np.array([x_coord, y_coord,vx,vy]).T
+        weight_mats = [np.diag([1,1,0,0]) * 100]
         fig = plt.figure()
         ax = fig.add_subplot(111)
         # ax.hold(True)
@@ -162,7 +163,7 @@ if __name__ == '__main__':
         n_queries = 5
         for _ in range(n_queries):
             # start from a perturbed point
-            x0 = ref_traj[0, :] + np.random.rand(2) * 2 - 1
+            x0 = ref_traj[0, :] + np.random.rand(4) * 2 - 1
             syn_traj = lqr_traj_ctrl.synthesize_trajectory(x0)
             # plot it
             ax.plot(syn_traj[:, 0], syn_traj[:, 1], linewidth=3.5)
