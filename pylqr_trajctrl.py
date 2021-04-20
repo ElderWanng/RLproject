@@ -60,7 +60,7 @@ class PyLQR_TrajCtrl():
 
         return
 
-    def build_ilqr_tracking_solver(self, ref_pnts, weight_mats):
+    def build_ilqr_tracking_solver(self, ref_pnts, weight_mats, ):
         #figure out dimension
         self.T_ = len(ref_pnts)
         self.n_dims_ = len(ref_pnts[0])
@@ -72,10 +72,10 @@ class PyLQR_TrajCtrl():
             self.weight_array.append(self.weight_array[-1])
 
         #build dynamics, second-order linear dynamical system
-        self.A_ = np.eye(self.n_dims_*2)
-        self.A_[0:self.n_dims_, self.n_dims_:] = np.eye(self.n_dims_) * self.dt_
-        self.B_ = np.zeros((self.n_dims_*2, self.n_dims_))
-        self.B_[self.n_dims_:, :] = np.eye(self.n_dims_) * self.dt_
+        # self.A_ = np.eye(self.n_dims_*2)
+        # self.A_[0:self.n_dims_, self.n_dims_:] = np.eye(self.n_dims_) * self.dt_
+        # self.B_ = np.zeros((self.n_dims_*2, self.n_dims_))
+        # self.B_[self.n_dims_:, :] = np.eye(self.n_dims_) * self.dt_
 
         self.plant_dyn_ = lambda x, u, t, aux: np.dot(self.A_, x) + np.dot(self.B_, u)
 
@@ -161,11 +161,11 @@ def PyLQR_TrajCtrl_TrackingTest():
     #draw reference trajectory
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.hold(True)
+    # ax.hold(True)
     ax.plot(ref_traj[:, 0], ref_traj[:, 1], '.-k', linewidth=3.5)
     ax.plot([ref_traj[0, 0]], [ref_traj[0, 1]], '*k', markersize=16)
 
-    lqr_traj_ctrl = PyLQR_TrajCtrl(use_autograd=True)
+    lqr_traj_ctrl = PyLQR_TrajCtrl(use_autograd=False)
     lqr_traj_ctrl.build_ilqr_tracking_solver(ref_traj, weight_mats)
 
     n_queries = 5
@@ -234,5 +234,5 @@ def PyLQR_TrajCtrl_GeneralTest():
     return
 
 if __name__ == '__main__':
-    # PyLQR_TrajCtrl_TrackingTest()
-    PyLQR_TrajCtrl_GeneralTest()
+    PyLQR_TrajCtrl_TrackingTest()
+    # PyLQR_TrajCtrl_GeneralTest()
