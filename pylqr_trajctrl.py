@@ -72,10 +72,10 @@ class PyLQR_TrajCtrl():
             self.weight_array.append(self.weight_array[-1])
 
         #build dynamics, second-order linear dynamical system
-        # self.A_ = np.eye(self.n_dims_*2)
-        # self.A_[0:self.n_dims_, self.n_dims_:] = np.eye(self.n_dims_) * self.dt_
-        # self.B_ = np.zeros((self.n_dims_*2, self.n_dims_))
-        # self.B_[self.n_dims_:, :] = np.eye(self.n_dims_) * self.dt_
+        self.A_ = np.eye(self.n_dims_*2)
+        self.A_[0:self.n_dims_, self.n_dims_:] = np.eye(self.n_dims_) * self.dt_
+        self.B_ = np.zeros((self.n_dims_*2, self.n_dims_))
+        self.B_[self.n_dims_:, :] = np.eye(self.n_dims_) * self.dt_
 
         self.plant_dyn_ = lambda x, u, t, aux: np.dot(self.A_, x) + np.dot(self.B_, u)
 
@@ -136,7 +136,7 @@ class PyLQR_TrajCtrl():
             print('No iLQR solver has been prepared.')
             return None
 
-        #initialization doesn't matter as global optimality can be guaranteed?
+
         if u_array is None:
             u_init = [np.zeros(self.n_dims_) for i in range(self.T_-1)]
         else:
@@ -235,4 +235,5 @@ def PyLQR_TrajCtrl_GeneralTest():
 
 if __name__ == '__main__':
     PyLQR_TrajCtrl_TrackingTest()
-    # PyLQR_TrajCtrl_GeneralTest()
+    PyLQR_TrajCtrl_GeneralTest()
+    np.ar

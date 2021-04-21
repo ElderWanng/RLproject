@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mp
 import IPython
 from solver import Solver
-
-class Quadrotor:
+from base_obj import Base_Obj
+class Quadrotor(Base_Obj):
     """
     This class describes a cart pole model and provides some helper functions
     """
@@ -18,6 +18,7 @@ class Quadrotor:
         for x (angle), v (angular velocity) and u (control) and the maximum control
         """
         # store discretization information
+        super().__init__()
         self.mass = 0.500
         self.inertia = 0.1
 
@@ -35,7 +36,7 @@ class Quadrotor:
 
 
 
-    def next_state(self, z, u):
+    def next_state(self, z, u,t):
         """
         Inputs:
         z: state of the cart pole syste as a numpy array (x,theta,v,omega)
@@ -84,7 +85,7 @@ class Quadrotor:
         u = np.zeros([self.nu, horizon_length])
         for i in range(horizon_length):
             u[:, i] = controller(z[:, i], i)
-            z[:, i + 1] = self.next_state(z[:, i], u[:, i])
+            z[:, i + 1] = self.next_state(z[:, i], u[:, i],i)
             if disturbance and np.mod(i, 100) == 0:
                 dist = np.zeros([self.ns, ])
                 dist[1::2] = np.random.uniform(-1., 1, (3,))
@@ -177,9 +178,7 @@ class Quadrotor:
         plt.close(ani._fig)
         IPython.display.display_html(IPython.core.display.HTML(ani.to_html5_video()))
 
-    def get_linearization(self, z, u):
-        assert z.shape == (6, 1)
-        assert u.shape == (2, 1)
+    def get_linearization(self, z, u,t):
         z = z.reshape(-1)
         dt = self.dt
         m = self.mass

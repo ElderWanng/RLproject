@@ -90,6 +90,25 @@ class LQR_Track_Controller:
             self.lqr_.cost_dux = self.cost_dux_
         return
 
+    def get_rule(self,x0, u_array=None, n_itrs=50, tol=1e-6, verbose=True):
+        if self.lqr_ is None:
+            print('No iLQR solver has been prepared.')
+            return None
+        #initialization doesn't matter as global optimality can be guaranteed?
+        if u_array is None:
+            u_init = [np.zeros(self.obj.nu) for i in range(self.T_-1)]
+        else:
+            u_init = u_array
+        x_init = np.zeros(self.obj.ns)
+        x_init[:len(x0)] = x0
+
+        # res = self.lqr_.ilqr_iterate(x_init, u_init, n_itrs=n_itrs, tol=tol, verbose=verbose)
+        res_dict = self.lqr_.LQR_solve(x_init,u_init)
+        x_star = res_dict['x_array_star']
+        Ks = res_dict['K_array_opt']
+        ks = res_dict['k_array_opt']
+        return Ks,ks
+
     def synthesize_trajectory(self,x0, u_array=None, n_itrs=50, tol=1e-6, verbose=True):
         if self.lqr_ is None:
             print('No iLQR solver has been prepared.')

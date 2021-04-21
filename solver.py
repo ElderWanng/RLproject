@@ -12,6 +12,7 @@ except ImportError:
 
 class Solver:
     def __init__(self,T, plant_dyn, cost,use_autograd=True, constraints=None):
+
         self.aux = None
         self.T = T
         self.plant_dyn = plant_dyn
@@ -37,6 +38,9 @@ class Solver:
         self.finite_diff_eps = 1e-5
         self.reg = .1
         self.alpha_array = np.array([0.5**i for i in range(10)])
+        self.reg_max = 1000000000
+        self.reg_factor =  10
+        self.reg_min = 1e-6
         if self.use_autograd:
             #generate gradients and hessians using autograd
             #note in this case, the plant_dyn, cost and constraints must be specified with the autograd numpy
@@ -104,8 +108,8 @@ class Solver:
             Quu = lqr_sys['dlduu'][t] + lqr_sys['dfdu'][t].T.dot(Vxx).dot(lqr_sys['dfdu'][t]) #R + Bt Plast B
 
             #use regularized inverse for numerical stability
-            # inv_Quu = self.regularized_persudo_inverse_(Quu, reg=self.reg)
-            inv_Quu = np.linalg.inv(Quu)
+            inv_Quu = self.regularized_persudo_inverse_(Quu, reg=self.reg)
+            # inv_Quu = np.linalg.inv(Quu)
 
             #get k and K
             fdfwd[t] = -inv_Quu.dot(Qu) # -inv(R + Bt Plast B)(B+ Bt )
@@ -153,9 +157,79 @@ class Solver:
 
         return np.array(x_new_array), np.array(u_new_array)
 
+    def iLQR_iteration(self,x0, u_init, n_itrs=50, tol=1e-6, verbose=True):
+        x_array = self.forward_propagation(x0, u_init)
+        u_array = np.copy(u_init)
+        J_opt = self.evaluate_trajectory_cost(x_array, u_init)
+        J_hist = [J_opt]
+        converged = False
+        for i in range(n_itrs):
+            k_array, K_array = self.back_propagation(x_array, u_array)
+            norm_k = np.mean(np.linalg.norm(k_array, axis=1))
+            accept = False
+            for alpha in self.alpha_array:
+                x_array_new, u_array_new = self.apply_control(x_array, u_array, k_array, K_array, alpha)
+                J_new = self.evaluate_trajectory_cost(x_array_new, u_array_new)
+                if J_new < J_opt:
+                    if np.abs((J_opt - J_new) / J_opt) < tol:
+                        J_opt = J_new
+                        x_array = x_array_new
+                        u_array = u_array_new
+                        converged = True
+                        break
+                    else:
+                        J_opt = J_new
+                        x_array = x_array_new
+                        u_array = u_array_new
+                        self.reg = np.max([self.reg_min, self.reg / self.reg_factor])
+                        accept = True
+                        if verbose:
+                            print(f'Iteration {i+1,}:\tJ = {J_opt:.3f};\tnorm_k = {norm_k:.3f};\treg = {np.log10(self.reg):.3f}')
+                        break
+                else:
+                    accept = False
+            J_hist.append(J_opt)
+            if converged:
+                if verbose:
+                    print('Converged at iteration {0}; J = {1}; reg = {2}'.format(i+1, J_opt, self.reg))
+                break
+            if not accept:
+                #need to increase regularization
+                #check if the regularization term is too large
+                if self.reg > self.reg_max:
+                    if verbose:
+                        print('Exceeds regularization limit at iteration {0}; terminate the iterations'.format(i+1))
+                    break
+
+                self.reg = self.reg * self.reg_factor
+                if verbose:
+                    print('Reject the control perturbation. Increase the regularization term.')
+
+
+        res_dict = {
+        'J_hist':np.array(J_hist),
+        'x_array_opt':np.array(x_array),
+        'u_array_opt':np.array(u_array),
+        'k_array_opt':np.array(k_array),
+        'K_array_opt':np.array(K_array)
+        }
+
+        return res_dict
+    def evaluate_trajectory_cost(self, x_array, u_array):
+        # Note x_array contains X_T, so a dummy u is required to make the arrays
+        # be of consistent length
+
+        J_array = [self.cost(x, u, t, self.aux) for t, (x, u) in enumerate(zip(x_array, u_array))]
 
 
 
+        return np.sum(J_array)
 
+    def regularized_persudo_inverse_(self, MAT, reg):
+        u, s, v = np.linalg.svd(MAT)
+        s[ s < 0 ] = 0.0        #truncate negative values...
+        diag_s_inv = np.zeros((v.shape[0], u.shape[1]))
+        diag_s_inv[0:len(s), 0:len(s)] = np.diag(1./(s+reg))
+        return v.dot(diag_s_inv).dot(u.T)
 
 
