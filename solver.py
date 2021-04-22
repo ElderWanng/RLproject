@@ -157,7 +157,7 @@ class Solver:
 
         return np.array(x_new_array), np.array(u_new_array)
 
-    def iLQR_iteration(self,x0, u_init, n_itrs=50, tol=1e-6, verbose=True):
+    def iLQR_iteration(self,x0, u_init, n_itrs=50, tol=1e-6, verbose=False):
         x_array = self.forward_propagation(x0, u_init)
         u_array = np.copy(u_init)
         J_opt = self.evaluate_trajectory_cost(x_array, u_init)
@@ -215,14 +215,9 @@ class Solver:
         }
 
         return res_dict
+
     def evaluate_trajectory_cost(self, x_array, u_array):
-        # Note x_array contains X_T, so a dummy u is required to make the arrays
-        # be of consistent length
-
         J_array = [self.cost(x, u, t, self.aux) for t, (x, u) in enumerate(zip(x_array, u_array))]
-
-
-
         return np.sum(J_array)
 
     def regularized_persudo_inverse_(self, MAT, reg):
